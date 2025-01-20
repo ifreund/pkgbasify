@@ -35,6 +35,36 @@ confirm_risk() {
 	done
 }
 
+# Sets $BASE_REPO_URL based on freebsd-version(1)
+get_base_repo_url() {
+	# e.g. 15.0-CURRENT, 14.2-STABLE, 14.1-RELEASE, 14.1-RELEASE-p6,
+	local full=$(freebsd-version)
+	local major_minor="${full%%-*}"
+	local major="${major_minor%.*}"
+	local minor="${major_minor#*.}"
+	local branch_patchlevel="${full#*-}"
+	local branch="${branch_patchlevel%%-*}"
+
+	if [ "${major}" -lt 14 ]; then
+		echo "Error: unsupported FreeBSD version '${full}'"
+		exit 1
+	fi
+
+	case "${branch}" in
+	"RELEASE")
+		BASE_REPO_URL="pkg+https://pkg.FreeBSD.org/\${ABI}/base_release_${minor}"
+		;;
+	"CURRENT" | "STABLE")
+		# TODO prompt the user to choose between latest and weekly?
+		BASE_REPO_URL="pkg+https://pkg.FreeBSD.org/\${ABI}/base_latest"
+		;;
+	*)
+		echo "Error: unsupported FreeBSD version '${full}'"
+		exit 1
+		;;
+	esac
+}
+
 check_already_pkgbase
 confirm_risk
 
@@ -52,17 +82,17 @@ if ! pkg config REPOS_DIR | grep "${CONF_DIR}"; then
 	exit 1
 fi
 
-#
 if [ -e "${CONF_DIR}/FreeBSD-base.conf" ]; then
 	echo "Error: ${CONF_DIR}/FreeBSD-base.conf already exists"
 	exit 1
 fi
 
-# XXX don't always use base_release_1
+get_base_repo_url
+
 mkdir -p "${CONF_DIR}"
-cat << 'EOF' > "${CONF_DIR}/FreeBSD-base.conf"
+cat << EOF > "${CONF_DIR}/FreeBSD-base.conf"
 FreeBSD-base: {
-  url: "pkg+https://pkg.FreeBSD.org/${ABI}/base_release_1",
+  url: "$BASE_REPO_URL",
   mirror_type: "srv",
   signature_type: "fingerprints",
   fingerprints: "/usr/share/keys/pkg",
