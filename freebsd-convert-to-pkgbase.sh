@@ -89,7 +89,8 @@ fi
 
 get_base_repo_url
 
-mkdir -p "${CONF_DIR}"
+echo "Creating ${CONF_DIR}/FreeBSD-base.conf"
+mkdir -p "${CONF_DIR}" > /dev/null
 cat << EOF > "${CONF_DIR}/FreeBSD-base.conf"
 FreeBSD-base: {
   url: "$BASE_REPO_URL",
