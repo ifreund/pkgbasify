@@ -65,6 +65,12 @@ get_base_repo_url() {
 	esac
 }
 
+not_dir_or_empty() {
+	test -d $1 || return 0
+	test -n "$(find $1 -maxdepth 0 -empty)" || return 0
+	return 1
+}
+
 check_already_pkgbase
 confirm_risk
 
@@ -108,8 +114,20 @@ fi
 
 pkg update || exit 1
 
-# TODO allow selection of groups of packages corresponding to tarball splits.
-PACKAGES=$(pkg rquery -r FreeBSD-base -e '%n ~ FreeBSD-* && %n !~ *-dbg && %n !~ *-dev && %n !~ *-lib32' %n)
+PACKAGES=$(pkg rquery -r FreeBSD-base %n)
+
+# Filter out packages where the pre-pkgbase equivalent is not installed.
+if not_dir_or_empty /usr/src; then
+	PACKAGES=$(echo "${PACKAGES}" | grep -v FreeBSD-src)
+fi
+if not_dir_or_empty /usr/tests; then
+	PACKAGES=$(echo "${PACKAGES}" | grep -v FreeBSD-tests)
+fi
+
+# TODO only filter these conditionally
+PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-dbg')
+PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-dev')
+PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-lib32')
 
 pkg install -r FreeBSD-base $PACKAGES || exit 1
 
