@@ -71,6 +71,44 @@ not_dir_or_empty() {
 	return 1
 }
 
+# Sets $PACKAGES to match the currently installed system components
+# (e.g. base-dbg, lib32, lib32-dbg...)
+select_packages() {
+	PACKAGES=$(pkg rquery -r FreeBSD-base %n)
+
+	# Only install FreeBSD-kernel-generic
+	PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-minimal(-dbg)?')
+	PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-generic-mmccam(-dbg)?')
+
+	if not_dir_or_empty /usr/lib/debug/boot/kernel; then
+		PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-generic-dbg')
+	fi
+
+	# Determine if base-dbg is installed and filter accordingly
+	if ! [ -e /usr/lib/debug/libexec/ld-elf.so.1.debug ]; then
+		# The .*-dbg regex matches the kernel dbg package as well,
+		# which we want to filter separately.
+		local no_dbg=$(echo "${PACKAGES}" | grep -vx '.*-dbg')
+		local kernel_dbg=$(echo "${PACKAGES}" | grep -x 'FreeBSD-kernel-generic-dbg')
+		PACKAGES="${no_dbg}\n${kernel_dbg}"
+	fi
+
+	# Determine if lib32/lib32-dbg are installed and filter accordingly
+	if ! [ -e /libexec/ld-elf32.so.1 ]; then
+	    PACKAGES=$(echo "${PACKAGES}" | grep -vx '.*-lib32')
+	elif ! [ -e /usr/lib/debug/libexec/ld-elf32.so.1.debug ]; then
+	    PACKAGES=$(echo "${PACKAGES}" | grep -vx '.*dbg-lib32')
+	fi
+
+	if not_dir_or_empty /usr/src; then
+		PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-src')
+	fi
+
+	if not_dir_or_empty /usr/tests; then
+		PACKAGES=$(echo "${PACKAGES}" | grep -vx '^FreeBSD-tests')
+	fi
+}
+
 check_already_pkgbase
 confirm_risk
 
@@ -114,20 +152,7 @@ fi
 
 pkg update || exit 1
 
-PACKAGES=$(pkg rquery -r FreeBSD-base %n)
-
-# Filter out packages where the pre-pkgbase equivalent is not installed.
-if not_dir_or_empty /usr/src; then
-	PACKAGES=$(echo "${PACKAGES}" | grep -v FreeBSD-src)
-fi
-if not_dir_or_empty /usr/tests; then
-	PACKAGES=$(echo "${PACKAGES}" | grep -v FreeBSD-tests)
-fi
-
-# TODO only filter these conditionally
-PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-dbg')
-PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-dev')
-PACKAGES=$(echo "${PACKAGES}" | grep -v '.*-lib32')
+select_packages
 
 pkg install -r FreeBSD-base $PACKAGES || exit 1
 
