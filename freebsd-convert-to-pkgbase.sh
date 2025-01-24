@@ -118,7 +118,8 @@ select_packages() {
 		# which we want to filter separately.
 		local no_dbg=$(echo "${PACKAGES}" | grep -vx '.*-dbg')
 		local kernel_dbg=$(echo "${PACKAGES}" | grep -x 'FreeBSD-kernel-generic-dbg')
-		PACKAGES="${no_dbg}\n${kernel_dbg}"
+		PACKAGES="${no_dbg}
+${kernel_dbg}"
 	fi
 
 	# Determine if lib32/lib32-dbg are installed and filter accordingly
