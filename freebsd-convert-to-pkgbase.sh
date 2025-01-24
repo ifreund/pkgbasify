@@ -105,8 +105,9 @@ select_packages() {
 	PACKAGES=$(pkg rquery -r FreeBSD-base %n)
 
 	# Only install FreeBSD-kernel-generic
-	PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-minimal(-dbg)?')
-	PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-generic-mmccam(-dbg)?')
+	PACKAGES=$(echo "${PACKAGES}" | egrep -vx 'FreeBSD-kernel-generic-nodebug(-dbg)?')
+	PACKAGES=$(echo "${PACKAGES}" | egrep -vx 'FreeBSD-kernel-generic-mmccam(-dbg)?')
+	PACKAGES=$(echo "${PACKAGES}" | egrep -vx 'FreeBSD-kernel-minimal(-dbg)?')
 
 	if not_dir_or_empty /usr/lib/debug/boot/kernel; then
 		PACKAGES=$(echo "${PACKAGES}" | grep -vx 'FreeBSD-kernel-generic-dbg')
