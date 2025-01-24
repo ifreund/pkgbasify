@@ -65,6 +65,34 @@ get_base_repo_url() {
 	esac
 }
 
+create_base_repo_conf() {
+	# TODO add an option to specify an alternative directory for FreeBSD-base.conf
+	CONF_DIR=/usr/local/etc/pkg/repos/
+	if ! pkg config REPOS_DIR | grep "${CONF_DIR}"; then
+		echo "Error: non-standard pkg REPOS_DIR config does not include ${CONF_DIR}"
+		exit 1
+	fi
+
+	if [ -e "${CONF_DIR}/FreeBSD-base.conf" ]; then
+		echo "Error: ${CONF_DIR}/FreeBSD-base.conf already exists"
+		exit 1
+	fi
+
+	get_base_repo_url
+
+	echo "Creating ${CONF_DIR}/FreeBSD-base.conf"
+	mkdir -p "${CONF_DIR}" > /dev/null
+	cat << EOF > "${CONF_DIR}/FreeBSD-base.conf"
+FreeBSD-base: {
+  url: "$BASE_REPO_URL",
+  mirror_type: "srv",
+  signature_type: "fingerprints",
+  fingerprints: "/usr/share/keys/pkg",
+  enabled: yes
+}
+EOF
+}
+
 not_dir_or_empty() {
 	test -d $1 || return 0
 	test -n "$(find $1 -maxdepth 0 -empty)" || return 0
@@ -119,31 +147,7 @@ fi
 
 pkg bootstrap
 
-# TODO add an option to specify an alternative directory for FreeBSD-base.conf
-CONF_DIR=/usr/local/etc/pkg/repos/
-if ! pkg config REPOS_DIR | grep "${CONF_DIR}"; then
-	echo "Error: non-standard pkg REPOS_DIR config does not include ${CONF_DIR}"
-	exit 1
-fi
-
-if [ -e "${CONF_DIR}/FreeBSD-base.conf" ]; then
-	echo "Error: ${CONF_DIR}/FreeBSD-base.conf already exists"
-	exit 1
-fi
-
-get_base_repo_url
-
-echo "Creating ${CONF_DIR}/FreeBSD-base.conf"
-mkdir -p "${CONF_DIR}" > /dev/null
-cat << EOF > "${CONF_DIR}/FreeBSD-base.conf"
-FreeBSD-base: {
-  url: "$BASE_REPO_URL",
-  mirror_type: "srv",
-  signature_type: "fingerprints",
-  fingerprints: "/usr/share/keys/pkg",
-  enabled: yes
-}
-EOF
+create_base_repo_conf
 
 if [ $(pkg config BACKUP_LIBRARIES) != "yes" ]; then
 	echo "Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf"
