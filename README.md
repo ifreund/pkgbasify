@@ -1,6 +1,6 @@
 # pkgbasify
 
-A tool to automatically convert a FreeBSD system to use
+Automatically convert a FreeBSD system to use
 [PkgBase](https://wiki.freebsd.org/PkgBase).
 
 ## Disclaimer
