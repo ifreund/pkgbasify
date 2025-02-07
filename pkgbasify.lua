@@ -149,10 +149,10 @@ function select_packages()
 	
 	local rquery = capture("pkg rquery -r FreeBSD-base %n"):gmatch("[^\n]+")
 	for package in rquery do
-		if package == "FreeBSD-src" then
-			table.insert(src, "FreeBSD-src")
-		elseif package == "FreeBSD-tests" then
-			table.insert(tests, "FreeBSD-tests")
+		if package == "FreeBSD-src" or package:match("FreeBSD%-src%-.*") then
+			table.insert(src, package)
+		elseif package == "FreeBSD-tests" or package:match("FreeBSD%-tests%-.*") then
+			table.insert(tests, package)
 		elseif package:match("FreeBSD%-kernel%-.*") then
 			-- Kernels other than FreeBSD-kernel-generic are ignored
 			if package == "FreeBSD-kernel-generic" then
@@ -176,8 +176,8 @@ function select_packages()
 	assert(#base_dbg > 0)
 	assert(#lib32 > 0)
 	assert(#lib32_dbg > 0)
-	assert(#src == 1)
-	assert(#tests == 1)
+	assert(#src > 0)
+	assert(#tests > 0)
 
 	local selected = {}
 	append_list(selected, kernel)
