@@ -60,6 +60,7 @@ function main()
 	end
 
 	err_if_fail(os.execute("pwd_mkdb -p /etc/master.passwd"))
+	err_if_fail(os.execute("cap_mkdb /etc/login.conf"))
 
 	-- From https://wiki.freebsd.org/PkgBase:
 	-- linker.hints was recreated at kernel install time, when we had .pkgsave files
