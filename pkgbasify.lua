@@ -35,9 +35,8 @@ function main()
 	
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
-	-- TODO use a proper tmpdir name from mktemp
-	assert(os.execute("mkdir -p /tmp/pkgbasify"))
-	assert(os.execute("cp -a /var/db/etcupdate/current /tmp/pkgbasify/current"))
+	local db = capture("mktemp -d -t pkgbasify"):gsub("%s+", "")
+	assert(os.execute("cp -a /var/db/etcupdate/current " .. db .. "/current"))
 
 	if not os.execute("pkg update") then
 		fatal("pkg update failed.")
@@ -54,7 +53,7 @@ function main()
 		err("pkg install failed.")
 	end
 
-	merge_pkgsaves()
+	merge_pkgsaves(db)
 
 	if os.execute("service sshd status > /dev/null 2>&1") then
 		print("Restarting sshd")
@@ -214,19 +213,19 @@ end
 -- Returns false if the path is empty, not a directory, or does not exist.
 function non_empty_dir(path)
 	local p = io.popen("find " .. path .. " -maxdepth 0 -type d -not -empty 2>/dev/null")
-	local output = p:read("*a"):gsub("[ \n]", "") -- remove whitespace
+	local output = p:read("*a"):gsub("%s+", "") -- remove whitespace
 	local success = p:close()
 	return output ~= "" and success
 end
 
-function merge_pkgsaves()
+function merge_pkgsaves(db)
 	for ours in capture("find / -name '*.pkgsave'"):gmatch("[^\n]+") do
 		local theirs = assert(ours:match("(.-)%.pkgsave"))
-		local old = "/tmp/pkgbasify/current/" .. theirs
+		local old = db .. "/current/" .. theirs
 		-- Only attempt to merge if we have a common ancestor from the
 		-- pre-conversion snapshot of the etcupdate database.
 		if os.execute("test -e " .. old) then
-			local merged = "/tmp/pkgbasify/merged/" .. theirs
+			local merged = db .. "/merged/" .. theirs
 			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
 			if os.execute("diff3 -m " .. ours .. " " .. old .. " " .. theirs .. " > " .. merged) and
 					os.execute("mv " .. merged .. " " .. theirs) then
@@ -241,6 +240,7 @@ end
 -- Run a command using the OS shell and capture the stdout
 -- Does not strip the trailing newline or any other whitespace in the output
 -- Asserts that the command exits cleanly
+-- TODO trim leading/trailing whitespace automatically?
 function capture(command)
 	local p = io.popen(command)
 	local output = p:read("*a")
