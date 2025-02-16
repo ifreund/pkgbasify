@@ -33,6 +33,12 @@ function main()
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
 	
+	-- We must make a copy of the etcupdate db before running pkg install as
+	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
+	-- TODO use a proper tmpdir name from mktemp
+	assert(os.execute("mkdir -p /tmp/pkgbasify"))
+	assert(os.execute("cp -a /var/db/etcupdate/current /tmp/pkgbasify/current"))
+
 	if not os.execute("pkg update") then
 		fatal("pkg update failed.")
 	end
@@ -48,11 +54,7 @@ function main()
 		err("pkg install failed.")
 	end
 
-	-- TODO better handling of .pkgsave files. Take inspiration from freebsd-update here.
-	restore_pkgsave("/etc/ssh/sshd_config")
-	restore_pkgsave("/etc/master.passwd")
-	restore_pkgsave("/etc/group")
-	restore_pkgsave("/etc/sysctl.conf")
+	merge_pkgsaves()
 
 	if os.execute("service sshd status > /dev/null 2>&1") then
 		print("Restarting sshd")
@@ -217,13 +219,22 @@ function non_empty_dir(path)
 	return output ~= "" and success
 end
 
--- Overwrite file with file.pkgsave
-function restore_pkgsave(file)
-	local ok, err_msg, err_code = os.rename(file .. ".pkgsave", file)
-	-- TODO add errno definitions to flua
-	local ENOENT = 2
-	if not ok and err_code ~= ENOENT then
-		err(err_msg)
+function merge_pkgsaves()
+	for ours in capture("find / -name '*.pkgsave'"):gmatch("[^\n]+") do
+		local theirs = assert(ours:match("(.-)%.pkgsave"))
+		local old = "/tmp/pkgbasify/current/" .. theirs
+		-- Only attempt to merge if we have a common ancestor from the
+		-- pre-conversion snapshot of the etcupdate database.
+		if os.execute("test -e " .. old) then
+			local merged = "/tmp/pkgbasify/merged/" .. theirs
+			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
+			if os.execute("diff3 -m " .. ours .. " " .. old .. " " .. theirs .. " > " .. merged) and
+					os.execute("mv " .. merged .. " " .. theirs) then
+				print("Merged " .. theirs)
+			else
+				print("Failed to merge " .. theirs .. ", manual intervention may be necessary")
+			end
+		end
 	end
 end
 
