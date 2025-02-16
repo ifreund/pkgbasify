@@ -9,6 +9,10 @@ Both the pkgbasify tool and PkgBase itself are experimental and running
 this tool may result in irreversible data loss and/or a system that fails to boot.
 It is highly recommended to make backups before running this tool.
 
+That said, I am not currently aware of any bugs with this tool and have used it
+to successfully upgrade test systems. If you try this tool and run into a bug
+please open an issue!
+
 ## Behavior
 
 The pkgbasify tool performs the following steps:
