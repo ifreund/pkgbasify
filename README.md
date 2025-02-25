@@ -15,12 +15,17 @@ If you find a bug in pkgbasify please open an issue!
 
 pkgbasify performs the following steps:
 
-1. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`) so that pkgbasify can merge config files after converting the system.
+1. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`).
+   This makes it possible for pkgbasify to merge config files after converting the system.
 2. Select a repository based on the output of [freebsd-version(1)] and create `/usr/local/etc/pkg/repos/FreeBSD-base.conf`.
 3. Select packages that correspond to the currently installed base system components.
-   - For example: if the lib32component is not already installed, pkgbasify will skip installation of lib32 packages.
-5. Install the selected packages with [pkg(8)], overwriting base system files and creating `.pkgsave` files as per standard `pkg(8)` behavior.
-6. Run a three-way-merge between the `.pkgsave` files (ours), the new files installed by pkg (theirs), and the old files in the copy of the etcupdate database.
+   - For example: if the lib32 component is not already installed,
+     pkgbasify will skip installation of lib32 packages.
+5. Install the selected packages with [pkg(8)],
+   overwriting base system files and creating `.pkgsave` files as per standard `pkg(8)` behavior.
+6. Run a three-way-merge between the `.pkgsave` files (ours),
+   the new files installed by pkg (theirs),
+   and the old files in the copy of the etcupdate database.
    - If there are merge conflicts, an error is logged and manual intervention may be required.
    - `.pkgsave` files without a corresponding entry in the old etcupdate database are skipped.
 8. If [sshd(8)] is running, restart the service.
