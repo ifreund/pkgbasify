@@ -17,7 +17,7 @@ function main()
 		print("canceled")
 		os.exit(1)
 	end
-	if capture("id -u") ~= "0\n" then
+	if capture("id -u") ~= "0" then
 		fatal("This tool must be run as the root user.")
 	end
 
@@ -27,7 +27,7 @@ function main()
 
 	create_base_repo_conf()
 
-	if capture("pkg config BACKUP_LIBRARIES") ~= "yes\n" then
+	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
 		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
 		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
@@ -35,7 +35,7 @@ function main()
 	
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
-	local db = capture("mktemp -d -t pkgbasify"):gsub("%s+", "")
+	local db = capture("mktemp -d -t pkgbasify")
 	assert(os.execute("cp -a /var/db/etcupdate/current " .. db .. "/current"))
 
 	if not os.execute("pkg update") then
@@ -251,14 +251,14 @@ function merge_pkgsaves(db)
 end
 
 -- Run a command using the OS shell and capture the stdout
--- Does not strip the trailing newline or any other whitespace in the output
+-- Strips exactly one trailing newline if present, does not strip any other whitespace.
 -- Asserts that the command exits cleanly
--- TODO trim leading/trailing whitespace automatically?
 function capture(command)
 	local p = io.popen(command)
 	local output = p:read("*a")
 	assert(p:close())
-	return output
+	-- Strip exactly one trailing newline from the output, if there is one
+	return output:match("(.-)\n$")
 end
 
 function append_list(list, other)
