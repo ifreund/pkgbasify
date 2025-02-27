@@ -21,8 +21,8 @@ function main()
 		fatal("This tool must be run as the root user.")
 	end
 
-	if not os.execute("pkg bootstrap -y") then
-		fatal("failed to bootstrap pkg.")
+	if not bootstrap_pkg() then
+		fatal("Failed to bootstrap pkg.")
 	end
 
 	create_base_repo_conf()
@@ -75,6 +75,19 @@ end
 function already_pkgbase()
 	return os.execute("pkg -N > /dev/null 2>&1") and
 		os.execute("pkg which /usr/bin/uname > /dev/null 2>&1")
+end
+
+function bootstrap_pkg()
+	-- Some versions of pkg do not handle `bootstrap -y` gracefully.
+	-- This has been fixed in https://github.com/freebsd/pkg/pull/2426 but
+	-- but we still need to check before running the bootstrap in case the pkg
+	-- version has the broken behavior.
+	if os.execute("pkg -N > /dev/null 2>&1") then
+		return true
+	else
+		print("Bootstrapping pkg...")
+		return os.execute("pkg bootstrap -y > /dev/null 2>&1")
+	end
 end
 
 function confirm_risk()
