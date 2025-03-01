@@ -144,12 +144,18 @@ function create_base_repo_conf()
 	if not os.execute("pkg config REPOS_DIR | grep " .. conf_dir .. " > /dev/null 2>&1") then
 		fatal("non-standard pkg REPOS_DIR config does not include " .. conf_dir)
 	end
+
 	local conf_file = conf_dir .. "FreeBSD-base.conf"
 	if os.execute("test -e " .. conf_file) then
-		fatal(conf_file .. " already exists.")
+		if not prompt_yn("Overwrite " .. conf_file .. "?") then
+			print("canceled")
+			os.exit(1)
+		end
+		print("Overwriting " .. conf_file)
+	else
+		print("Creating " .. conf_file)
 	end
 
-	print("Creating " .. conf_file)
 	assert(os.execute("mkdir -p " .. conf_dir))
 	local f = assert(io.open(conf_file, "w"))
 	assert(f:write(string.format([[
