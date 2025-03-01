@@ -10,6 +10,8 @@
 -- See also the pkgbase wiki page: https://wiki.freebsd.org/PkgBase
 
 function main()
+	local options = parse_options()
+
 	if already_pkgbase() then
 		fatal("The system is already using pkgbase.")
 	end
@@ -42,6 +44,8 @@ function main()
 		fatal("pkg update failed.")
 	end
 
+	check_version_compatibility(options)
+
 	local packages = select_packages()
 	
 	-- This is the point of no return, pkg install will start mutating global
@@ -72,6 +76,30 @@ function main()
 	os.exit(0)
 end
 
+
+function parse_options()
+	local usage = [[
+usage: pkgbasify [options]
+
+    -h, --help          Print this help message and exit
+    --ignore-osversion  Allow pkgbasify to upgrade the system
+]]
+	local options = {}
+	for _, a in ipairs(arg) do
+		if a == "-h" or a == "--help" then
+			print(usage)
+			os.exit(0)
+		elseif a == "--ignore-osversion" then
+			options.ignore_osversion = true
+		else
+			err("Invalid argument '" .. a .. "'")
+			err(usage)
+			os.exit(1)
+		end
+	end
+	return options
+end
+
 function already_pkgbase()
 	return os.execute("pkg -N > /dev/null 2>&1") and
 		os.execute("pkg which /usr/bin/uname > /dev/null 2>&1")
@@ -94,8 +122,12 @@ function confirm_risk()
 	print("Running this tool will irreversibly modify your system to use pkgbase.")
 	print("This tool and pkgbase are experimental and may result in a broken system.")
 	print("It is highly recommend to backup your system before proceeding.")
+	return prompt_yn("Do you accept this risk and wish to continue?")
+end
+
+function prompt_yn(question)
 	while true do
-		io.write("Do you accept this risk and wish to continue? (y/n) ")
+		io.write(question .. " (y/n) ")
 		local input = io.read()
 		if input == "y" or input == "Y" then
 			return true
@@ -149,6 +181,43 @@ function base_repo_url()
 	else
 		fatal("unsupported FreeBSD version: " .. raw)
 	end
+end
+
+function check_version_compatibility(options)
+	local osversion_local = math.tointeger(capture("pkg config osversion"))
+	local osversion_remote = rquery_osversion()
+	if osversion_remote < osversion_local then
+		-- This may be overly restrictive, having to wait for remote repositories to
+		-- update before the system can be pkgbasified is poor UX.
+		fatal(string.format([[
+System has newer __FreeBSD_version than remote packages (%d vs %d).
+Downgrading the system using pkgbasify is not supported.
+]], osversion_local, osversion_remote))
+	elseif osversion_remote ~= osversion_local and not options.ignore_osversion then
+		fatal(string.format([[
+System __FreeBSD_version does not match remote packages (%d vs %d).
+It is recommended to update the system before running pkgbasify.
+To ignore this version mismatch and proceed anyway, pass --ignore-osversion.
+]], osversion_local, osversion_remote))
+	end
+end
+
+-- Returns the osversion as an integer
+function rquery_osversion()
+	-- It feels like pkg should provide a less ugly way to do this.
+	local tags = capture("pkg rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
+	local values = capture("pkg rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
+	while true do
+		local tag = tags()
+		local value = values()
+		if not tag or not value then
+			break
+		end
+		if tag == "FreeBSD_version" then
+			return math.tointeger(value)
+		end
+	end
+	fatal("Missing FreeBSD_version annotation for FreeBSD-runtime package")
 end
 
 -- Returns a list of pkgbase packages matching the files present on the system
