@@ -113,8 +113,7 @@ function bootstrap_pkg()
 	if os.execute("pkg -N > /dev/null 2>&1") then
 		return true
 	else
-		print("Bootstrapping pkg...")
-		return os.execute("pkg bootstrap -y > /dev/null 2>&1")
+		return os.execute("pkg bootstrap -y")
 	end
 end
 
