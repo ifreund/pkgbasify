@@ -10,8 +10,6 @@
 -- See also the pkgbase wiki page: https://wiki.freebsd.org/PkgBase
 
 function main()
-	local options = parse_options()
-
 	if already_pkgbase() then
 		fatal("The system is already using pkgbase.")
 	end
@@ -34,19 +32,24 @@ function main()
 		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
-	
+
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
-	local db = capture("mktemp -d -t pkgbasify")
-	assert(os.execute("cp -a /var/db/etcupdate/current " .. db .. "/current"))
+	local workdir = capture("mktemp -d -t pkgbasify")
+	assert(os.execute("cp -a /var/db/etcupdate/current " .. workdir .. "/current"))
 
-	if not os.execute("pkg update") then
-		fatal("pkg update failed.")
+	-- Use a temporary pkg db until we are sure we will carry through with the
+	-- conversion to avoid polluting the standard one.
+	local db = workdir .. "/pkgdb"
+	assert(os.execute("mkdir -p " .. db))
+	assert(os.execute("pkg -o PKG_DBDIR=" .. db .. " -o IGNORE_OSVERSION=yes update"))
+
+	if not confirm_version_compatibility(db) then
+		print("canceled")
+		os.exit(1)
 	end
 
-	check_version_compatibility(options)
-
-	local packages = select_packages()
+	local packages = select_packages(db)
 	
 	-- This is the point of no return, pkg install will start mutating global
 	-- system state. Furthermore, pkg install is not necessarily fully atomic,
@@ -57,7 +60,7 @@ function main()
 		err("pkg install failed.")
 	end
 
-	merge_pkgsaves(db)
+	merge_pkgsaves(workdir)
 
 	if os.execute("service sshd status > /dev/null 2>&1") then
 		print("Restarting sshd")
@@ -74,30 +77,6 @@ function main()
 	err_if_fail(os.remove("/boot/kernel/linker.hints"))
 
 	os.exit(0)
-end
-
-
-function parse_options()
-	local usage = [[
-usage: pkgbasify [options]
-
-    -h, --help          Print this help message and exit
-    --ignore-osversion  Allow pkgbasify to upgrade the system
-]]
-	local options = {}
-	for _, a in ipairs(arg) do
-		if a == "-h" or a == "--help" then
-			print(usage)
-			os.exit(0)
-		elseif a == "--ignore-osversion" then
-			options.ignore_osversion = true
-		else
-			err("Invalid argument '" .. a .. "'")
-			err(usage)
-			os.exit(1)
-		end
-	end
-	return options
 end
 
 function already_pkgbase()
@@ -188,30 +167,33 @@ function base_repo_url()
 	end
 end
 
-function check_version_compatibility(options)
+function confirm_version_compatibility(db)
 	local osversion_local = math.tointeger(capture("pkg config osversion"))
-	local osversion_remote = rquery_osversion()
+	local osversion_remote = rquery_osversion(db)
 	if osversion_remote < osversion_local then
 		-- This may be overly restrictive, having to wait for remote repositories to
 		-- update before the system can be pkgbasified is poor UX.
-		fatal(string.format([[
-System has newer __FreeBSD_version than remote packages (%d vs %d).
-Downgrading the system using pkgbasify is not supported.
-]], osversion_local, osversion_remote))
-	elseif osversion_remote ~= osversion_local and not options.ignore_osversion then
-		fatal(string.format([[
-System __FreeBSD_version does not match remote packages (%d vs %d).
-It is recommended to update the system before running pkgbasify.
-To ignore this version mismatch and proceed anyway, pass --ignore-osversion.
-]], osversion_local, osversion_remote))
+		print(string.format("System has newer __FreeBSD_version than remote pkgbase packages (%d vs %d).",
+			osversion_local, osversion_remote))
+		return prompt_yn(string.format("Continue anyway and downgrade the system to %d?", osversion_remote))
+	elseif osversion_remote > osversion_local then
+		print(string.format("System has older __FreeBSD_version than remote pkgbase packages (%d vs %d).",
+			osversion_local, osversion_remote))
+		print("It is recommended to update your system before running pkgbasify.")
+		return prompt_yn("Ignore the osversion and continue anyway?")
 	end
+	assert(osversion_local == osversion_remote)
+	return true
 end
 
 -- Returns the osversion as an integer
-function rquery_osversion()
+function rquery_osversion(db)
 	-- It feels like pkg should provide a less ugly way to do this.
-	local tags = capture("pkg rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
-	local values = capture("pkg rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
+	-- TODO is FreeBSD-runtime the correct pkg to check against?
+	local tags = capture("pkg -o PKG_DBDIR=" .. db ..
+		" rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
+	local values = capture("pkg -o PKG_DBDIR=" .. db ..
+		" rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
 	while true do
 		local tag = tags()
 		local value = values()
@@ -226,7 +208,7 @@ function rquery_osversion()
 end
 
 -- Returns a list of pkgbase packages matching the files present on the system
-function select_packages()
+function select_packages(db)
 	local kernel = {}
 	local kernel_dbg = {}
 	local base = {}
@@ -236,8 +218,8 @@ function select_packages()
 	local src = {}
 	local tests = {}
 	
-	local rquery = capture("pkg rquery -r FreeBSD-base %n"):gmatch("[^\n]+")
-	for package in rquery do
+	local rquery = capture("pkg -o PKG_DBDIR=" .. db .. " rquery -r FreeBSD-base %n")
+	for package in rquery:gmatch("[^\n]+") do
 		if package == "FreeBSD-src" or package:match("FreeBSD%-src%-.*") then
 			table.insert(src, package)
 		elseif package == "FreeBSD-tests" or package:match("FreeBSD%-tests%-.*") then
@@ -305,14 +287,14 @@ function non_empty_dir(path)
 	return output ~= "" and success
 end
 
-function merge_pkgsaves(db)
+function merge_pkgsaves(workdir)
 	for ours in capture("find / -name '*.pkgsave'"):gmatch("[^\n]+") do
 		local theirs = assert(ours:match("(.-)%.pkgsave"))
-		local old = db .. "/current/" .. theirs
+		local old = workdir .. "/current/" .. theirs
 		-- Only attempt to merge if we have a common ancestor from the
 		-- pre-conversion snapshot of the etcupdate database.
 		if os.execute("test -e " .. old) then
-			local merged = db .. "/merged/" .. theirs
+			local merged = workdir .. "/merged/" .. theirs
 			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
 			if os.execute("diff3 -m " .. ours .. " " .. old .. " " .. theirs .. " > " .. merged) and
 					os.execute("mv " .. merged .. " " .. theirs) then
