@@ -20,16 +20,30 @@ function main()
 	if capture("id -u") ~= "0" then
 		fatal("This tool must be run as the root user.")
 	end
-
 	if not bootstrap_pkg() then
 		fatal("Failed to bootstrap pkg.")
 	end
 
+	local workdir = capture("mktemp -d -t pkgbasify")
+
+	local packages = setup_conversion(workdir)
+
+	-- This is the point of no return, execute_conversion() will start mutating
+	-- global system state.
+	-- Before this point, any error should leave the system to exactly the state
+	-- it was in before running pkgbasify.
+	-- After this point, no error should be fatal and pkgbasify should attempt
+	-- to finish conversion regardless of what happens.
+	execute_conversion(workdir, packages)
+
+	os.exit(0)
+end
+
+function setup_conversion(workdir)
 	create_base_repo_conf()
 
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
-	local workdir = capture("mktemp -d -t pkgbasify")
 	assert(os.execute("cp -a /var/db/etcupdate/current " .. workdir .. "/current"))
 
 	-- Use a temporary pkg db until we are sure we will carry through with the
@@ -43,22 +57,18 @@ function main()
 		os.exit(1)
 	end
 
-	local packages = select_packages(db)
-	
-	-- This is the point of no return, pkg install will start mutating global
-	-- system state. Furthermore, pkg install is not necessarily fully atomic,
-	-- even if it fails some subset of the packages may have been installed.
-	-- Before this point, any error should leave the system to exactly the state
-	-- it was in before running pkgbasify.
-	-- After this point, no error should be fatal and pkgbasify should attempt
-	-- to finish conversion regardless of what happens.
+	return select_packages(db)
+end
 
+function execute_conversion(workdir, packages)
 	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
 		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
 		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
 
+	-- pkg install is not necessarily fully atomic, even if it fails some subset
+	-- of the packages may have been installed.
 	err_if_fail(os.execute("pkg install -y -r FreeBSD-base " .. table.concat(packages, " ")))
 
 	merge_pkgsaves(workdir)
@@ -76,8 +86,6 @@ function main()
 	-- of previous modules. A new linker.hints file will be created during the next
 	-- boot of the OS.
 	err_if_fail(os.remove("/boot/kernel/linker.hints"))
-
-	os.exit(0)
 end
 
 function already_pkgbase()
