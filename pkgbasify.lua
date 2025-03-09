@@ -27,12 +27,6 @@ function main()
 
 	create_base_repo_conf()
 
-	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
-		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
-		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
-		assert(f:write("BACKUP_LIBRARIES=yes\n"))
-	end
-
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
 	local workdir = capture("mktemp -d -t pkgbasify")
@@ -54,11 +48,18 @@ function main()
 	-- This is the point of no return, pkg install will start mutating global
 	-- system state. Furthermore, pkg install is not necessarily fully atomic,
 	-- even if it fails some subset of the packages may have been installed.
-	-- This means that we need to fixup the critical password/group related
-	-- configuration even if this fails.
-	if not os.execute("pkg install -y -r FreeBSD-base " .. table.concat(packages, " ")) then
-		err("pkg install failed.")
+	-- Before this point, any error should leave the system to exactly the state
+	-- it was in before running pkgbasify.
+	-- After this point, no error should be fatal and pkgbasify should attempt
+	-- to finish conversion regardless of what happens.
+
+	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
+		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
+		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
+		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
+
+	err_if_fail(os.execute("pkg install -y -r FreeBSD-base " .. table.concat(packages, " ")))
 
 	merge_pkgsaves(workdir)
 
@@ -329,13 +330,13 @@ function err_if_fail(ok, err_msg)
 	end
 end
 
-function err(msg)
-	io.stderr:write("Error: " .. msg .. "\n")
+function fatal(msg)
+	err(msg)
+	os.exit(1)
 end
 
-function fatal(msg)
+function err(msg)
 	io.stderr:write("Error: " .. msg .. "\n")
-	os.exit(1)
 end
 
 main()
