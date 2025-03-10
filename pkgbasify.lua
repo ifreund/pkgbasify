@@ -63,7 +63,7 @@ end
 function execute_conversion(workdir, packages)
 	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
 		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
-		local f = assert(io.open("/usr/local/etc/pkg.conf", "a"))
+		local f <close> = assert(io.open("/usr/local/etc/pkg.conf", "a"))
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
 
@@ -144,7 +144,7 @@ function create_base_repo_conf()
 	end
 
 	assert(os.execute("mkdir -p " .. conf_dir))
-	local f = assert(io.open(conf_file, "w"))
+	local f <close> = assert(io.open(conf_file, "w"))
 	assert(f:write(string.format([[
 FreeBSD-base: {
   url: "%s",
