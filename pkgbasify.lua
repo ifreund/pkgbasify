@@ -9,6 +9,9 @@
 
 -- See also the pkgbase wiki page: https://wiki.freebsd.org/PkgBase
 
+local repos_conf_dir <const> = "/usr/local/etc/pkg/repos/"
+local repos_conf_file <const> = repos_conf_dir .. "FreeBSD-base.conf"
+
 function main()
 	if already_pkgbase() then
 		fatal("The system is already using pkgbase.")
@@ -40,27 +43,53 @@ function main()
 end
 
 function setup_conversion(workdir)
-	create_base_repo_conf()
-
 	-- We must make a copy of the etcupdate db before running pkg install as
 	-- the etcupdate db matching the pre-pkgbasify system state will be overwritten.
 	assert(os.execute("cp -a /var/db/etcupdate/current " .. workdir .. "/current"))
 
 	-- Use a temporary pkg db until we are sure we will carry through with the
 	-- conversion to avoid polluting the standard one.
-	local db = workdir .. "/pkgdb"
-	assert(os.execute("mkdir -p " .. db))
-	assert(os.execute("pkg -o PKG_DBDIR=" .. db .. " -o IGNORE_OSVERSION=yes update"))
+	local tmp_db = workdir .. "/pkgdb/"
+	assert(os.execute("mkdir -p " .. tmp_db))
 
-	if not confirm_version_compatibility(db) then
+	-- Use a temporary repo configuration file for the setup phase so that there
+	-- is nothing to clean up on failure.
+	local tmp_repos = workdir .. "/pkgrepos/"
+	create_base_repo_conf(tmp_repos .. "FreeBSD-base.conf")
+
+	local pkg = "pkg -o PKG_DBDIR=" .. tmp_db .. " -R " .. tmp_repos .. " "
+
+	assert(os.execute(pkg .. "-o IGNORE_OSVERSION=yes update"))
+
+	if not confirm_version_compatibility(pkg) then
 		print("canceled")
 		os.exit(1)
 	end
 
-	return select_packages(db)
+	-- TODO using grep and test here is not idiomatic lua, improve this
+	if not os.execute("pkg config REPOS_DIR | grep " .. repos_conf_dir .. " > /dev/null 2>&1") then
+		fatal("non-standard pkg REPOS_DIR config does not include " .. repos_conf_dir)
+	end
+
+	-- The repos_conf_file is created/overwritten in execute_conversion()
+	if os.execute("test -e " .. repos_conf_file) then
+		if not prompt_yn("Overwrite " .. repos_conf_file .. "?") then
+			print("canceled")
+			os.exit(1)
+		end
+	end
+
+	return select_packages(pkg)
 end
 
 function execute_conversion(workdir, packages)
+	if os.execute("test -e " .. repos_conf_file) then
+		print("Overwriting " .. repos_conf_file)
+	else
+		print("Creating " .. repos_conf_file)
+	end
+	create_base_repo_conf(repos_conf_file)
+
 	if capture("pkg config BACKUP_LIBRARIES") ~= "yes" then
 		print("Adding BACKUP_LIBRARIES=yes to /usr/local/etc/pkg.conf")
 		local f <close> = assert(io.open("/usr/local/etc/pkg.conf", "a"))
@@ -124,27 +153,9 @@ function prompt_yn(question)
 	end
 end
 
-function create_base_repo_conf()
-	-- TODO add an option to specify an alternative directory for FreeBSD-base.conf
-	-- TODO using grep and test here is not idiomatic lua, improve this
-	local conf_dir = "/usr/local/etc/pkg/repos/"
-	if not os.execute("pkg config REPOS_DIR | grep " .. conf_dir .. " > /dev/null 2>&1") then
-		fatal("non-standard pkg REPOS_DIR config does not include " .. conf_dir)
-	end
-
-	local conf_file = conf_dir .. "FreeBSD-base.conf"
-	if os.execute("test -e " .. conf_file) then
-		if not prompt_yn("Overwrite " .. conf_file .. "?") then
-			print("canceled")
-			os.exit(1)
-		end
-		print("Overwriting " .. conf_file)
-	else
-		print("Creating " .. conf_file)
-	end
-
-	assert(os.execute("mkdir -p " .. conf_dir))
-	local f <close> = assert(io.open(conf_file, "w"))
+function create_base_repo_conf(path)
+	assert(os.execute("mkdir -p " .. path:match(".*/")))
+	local f <close> = assert(io.open(path, "w"))
 	assert(f:write(string.format([[
 FreeBSD-base: {
   url: "%s",
@@ -176,9 +187,9 @@ function base_repo_url()
 	end
 end
 
-function confirm_version_compatibility(db)
-	local osversion_local = math.tointeger(capture("pkg config osversion"))
-	local osversion_remote = rquery_osversion(db)
+function confirm_version_compatibility(pkg)
+	local osversion_local = math.tointeger(capture(pkg .. " config osversion"))
+	local osversion_remote = rquery_osversion(pkg)
 	if osversion_remote < osversion_local then
 		-- This may be overly restrictive, having to wait for remote repositories to
 		-- update before the system can be pkgbasified is poor UX.
@@ -196,13 +207,11 @@ function confirm_version_compatibility(db)
 end
 
 -- Returns the osversion as an integer
-function rquery_osversion(db)
+function rquery_osversion(pkg)
 	-- It feels like pkg should provide a less ugly way to do this.
 	-- TODO is FreeBSD-runtime the correct pkg to check against?
-	local tags = capture("pkg -o PKG_DBDIR=" .. db ..
-		" rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
-	local values = capture("pkg -o PKG_DBDIR=" .. db ..
-		" rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
+	local tags = capture(pkg .. "rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
+	local values = capture(pkg .. "rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
 	while true do
 		local tag = tags()
 		local value = values()
@@ -217,7 +226,7 @@ function rquery_osversion(db)
 end
 
 -- Returns a list of pkgbase packages matching the files present on the system
-function select_packages(db)
+function select_packages(pkg)
 	local kernel = {}
 	local kernel_dbg = {}
 	local base = {}
@@ -227,7 +236,7 @@ function select_packages(db)
 	local src = {}
 	local tests = {}
 	
-	local rquery = capture("pkg -o PKG_DBDIR=" .. db .. " rquery -r FreeBSD-base %n")
+	local rquery = capture(pkg .. "rquery -r FreeBSD-base %n")
 	for package in rquery:gmatch("[^\n]+") do
 		if package == "FreeBSD-src" or package:match("FreeBSD%-src%-.*") then
 			table.insert(src, package)
