@@ -11,6 +11,14 @@ It is highly recommended to make backups before running this tool.
 That said, I am not aware of any bugs in pkgbasify and have used it to successfully upgrade test systems.
 If you find a bug in pkgbasify please open an issue!
 
+## Usage
+Login as root. Download the script, give it permission to execute, and then run it.
+```
+fetch https://github.com/ifreund/pkgbasify/raw/refs/heads/main/pkgbasify.lua -o /usr/local/sbin/pkgbasify.lua
+chmod +x /usr/local/sbin/pkgbasify.lua
+/usr/local/sbin/pkgbasify.lua
+```
+
 ## Behavior
 
 pkgbasify performs the following steps:
