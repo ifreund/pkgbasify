@@ -23,6 +23,9 @@ function main()
 	if capture("id -u") ~= "0" then
 		fatal("This tool must be run as the root user.")
 	end
+
+	create_boot_environment()
+
 	if not bootstrap_pkg() then
 		fatal("Failed to bootstrap pkg.")
 	end
@@ -223,6 +226,24 @@ function rquery_osversion(pkg)
 		end
 	end
 	fatal("Missing FreeBSD_version annotation for FreeBSD-runtime package")
+end
+
+function create_boot_environment()
+	-- Don't create a boot environment if running in a jail
+	if capture("sysctl -n security.jail.jailed") == "1" then
+		return
+	end
+
+	if not os.execute("bectl check") then
+		return
+	end
+
+	if prompt_yn("Create a boot environment before conversion?") then
+		local timestamp = capture("date +'%Y-%m-%d_%H%M%S'")
+		if not os.execute("bectl create -r pre-pkgbasify_" .. timestamp) then
+			fatal("failed to create boot environment")
+		end
+	end
 end
 
 -- Returns a list of pkgbase packages matching the files present on the system
