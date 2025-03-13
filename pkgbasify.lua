@@ -99,9 +99,20 @@ function execute_conversion(workdir, packages)
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
 
+	local packages = table.concat(packages, " ")
+	-- Fetch the packages separately so that we can retry if there is a temporary
+	-- network issue or similar.
+	while not os.execute("pkg install --fetch-only -y -r FreeBSD-base " .. packages) do
+		if not prompt_yn("Fetching packages failed, try again?") then
+			print("canceled")
+			os.exit(1)
+		end
+	end
+
 	-- pkg install is not necessarily fully atomic, even if it fails some subset
-	-- of the packages may have been installed.
-	err_if_fail(os.execute("pkg install -y -r FreeBSD-base " .. table.concat(packages, " ")))
+	-- of the packages may have been installed. Therefore, we must attempt all
+	-- followup work even if install fails.
+	err_if_fail(os.execute("pkg install --no-repo-update -y -r FreeBSD-base " .. packages))
 
 	merge_pkgsaves(workdir)
 
