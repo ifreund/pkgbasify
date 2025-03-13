@@ -25,10 +25,11 @@ Download the script, give it permission to execute, and then run it as root.
 
 pkgbasify performs the following steps:
 
-1. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`).
+1. Prompt the user to create a "pre-pkgbasify" boot environment using [bectl(8)] if possible.
+2. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`).
    This makes it possible for pkgbasify to merge config files after converting the system.
-2. Select a repository based on the output of [freebsd-version(1)] and create `/usr/local/etc/pkg/repos/FreeBSD-base.conf`.
-3. Select packages that correspond to the currently installed base system components.
+3. Select a repository based on the output of [freebsd-version(1)] and create `/usr/local/etc/pkg/repos/FreeBSD-base.conf`.
+4. Select packages that correspond to the currently installed base system components.
    - For example: if the lib32 component is not already installed,
      pkgbasify will skip installation of lib32 packages.
 5. Install the selected packages with [pkg(8)],
@@ -38,10 +39,11 @@ pkgbasify performs the following steps:
    and the old files in the copy of the etcupdate database.
    - If there are merge conflicts, an error is logged and manual intervention may be required.
    - `.pkgsave` files without a corresponding entry in the old etcupdate database are skipped.
-8. If [sshd(8)] is running, restart the service.
-9. Run [pwd_mkdb(8)] and [cap_mkdb(1)].
-10. Remove `/boot/kernel/linker.hints`.
+7. If [sshd(8)] is running, restart the service.
+8. Run [pwd_mkdb(8)] and [cap_mkdb(1)].
+9. Remove `/boot/kernel/linker.hints`.
 
+[bectl(8)]: https://man.freebsd.org/cgi/man.cgi?query=bectl&sektion=8&manpath=freebsd-release
 [pkgbase]: https://wiki.freebsd.org/PkgBase
 [etcupdate(8)]: https://man.freebsd.org/cgi/man.cgi?query=etcupdate&sektion=8&manpath=freebsd-release
 [freebsd-version(1)]: https://man.freebsd.org/cgi/man.cgi?query=freebsd-version&sektion=1&manpath=freebsd-release
