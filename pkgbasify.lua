@@ -24,8 +24,6 @@ function main()
 		fatal("This tool must be run as the root user.")
 	end
 
-	create_boot_environment()
-
 	if not bootstrap_pkg() then
 		fatal("Failed to bootstrap pkg.")
 	end
@@ -33,6 +31,8 @@ function main()
 	local workdir = capture("mktemp -d -t pkgbasify")
 
 	local packages = setup_conversion(workdir)
+
+	create_boot_environment()
 
 	-- This is the point of no return, execute_conversion() will start mutating
 	-- global system state.
