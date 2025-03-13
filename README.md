@@ -12,11 +12,13 @@ That said, I am not aware of any bugs in pkgbasify and have used it to successfu
 If you find a bug in pkgbasify please open an issue!
 
 ## Usage
-Login as root. Download the script, give it permission to execute, and then run it.
+
+Download the script, give it permission to execute, and then run it as root.
+
 ```
-fetch https://github.com/ifreund/pkgbasify/raw/refs/heads/main/pkgbasify.lua -o /usr/local/sbin/pkgbasify.lua
-chmod +x /usr/local/sbin/pkgbasify.lua
-/usr/local/sbin/pkgbasify.lua
+# fetch https://github.com/ifreund/pkgbasify/raw/refs/heads/main/pkgbasify.lua
+# chmod +x ./pkgbasify.lua
+# ./pkgbasify.lua
 ```
 
 ## Behavior
