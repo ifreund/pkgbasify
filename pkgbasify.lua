@@ -17,7 +17,7 @@ function main()
 		fatal("The system is already using pkgbase.")
 	end
 	if not confirm_risk() then
-		print("canceled")
+		print("Canceled")
 		os.exit(1)
 	end
 	if capture("id -u") ~= "0" then
@@ -65,19 +65,19 @@ function setup_conversion(workdir)
 	assert(os.execute(pkg .. "-o IGNORE_OSVERSION=yes update"))
 
 	if not confirm_version_compatibility(pkg) then
-		print("canceled")
+		print("Canceled")
 		os.exit(1)
 	end
 
 	-- TODO using grep and test here is not idiomatic lua, improve this
 	if not os.execute("pkg config REPOS_DIR | grep " .. repos_conf_dir .. " > /dev/null 2>&1") then
-		fatal("non-standard pkg REPOS_DIR config does not include " .. repos_conf_dir)
+		fatal("Non-standard pkg REPOS_DIR config does not include " .. repos_conf_dir)
 	end
 
 	-- The repos_conf_file is created/overwritten in execute_conversion()
 	if os.execute("test -e " .. repos_conf_file) then
 		if not prompt_yn("Overwrite " .. repos_conf_file .. "?") then
-			print("canceled")
+			print("Canceled")
 			os.exit(1)
 		end
 	end
@@ -104,7 +104,7 @@ function execute_conversion(workdir, packages)
 	-- network issue or similar.
 	while not os.execute("pkg install --fetch-only -y -r FreeBSD-base " .. packages) do
 		if not prompt_yn("Fetching packages failed, try again?") then
-			print("canceled")
+			print("Canceled")
 			os.exit(1)
 		end
 	end
@@ -189,7 +189,7 @@ function base_repo_url()
 	local major, minor, branch = assert(raw:match("(%d+)%.(%d+)%-(%u+)"))
 
 	if math.tointeger(major) < 14 then
-		fatal("unsupported FreeBSD version: " .. raw)
+		fatal("Unsupported FreeBSD version: " .. raw)
 	end
 
 	if branch == "RELEASE" then
@@ -197,7 +197,7 @@ function base_repo_url()
 	elseif branch == "CURRENT" or branch == "STABLE" then
 		return "pkg+https://pkg.FreeBSD.org/${ABI}/base_latest"
 	else
-		fatal("unsupported FreeBSD version: " .. raw)
+		fatal("Unsupported FreeBSD version: " .. raw)
 	end
 end
 
@@ -252,7 +252,7 @@ function create_boot_environment()
 	if prompt_yn("Create a boot environment before conversion?") then
 		local timestamp = capture("date +'%Y-%m-%d_%H%M%S'")
 		if not os.execute("bectl create -r pre-pkgbasify_" .. timestamp) then
-			fatal("failed to create boot environment")
+			fatal("Failed to create boot environment")
 		end
 	end
 end
