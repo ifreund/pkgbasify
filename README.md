@@ -27,13 +27,13 @@ If conversion succeeds:
 
 pkgbasify performs the following steps:
 
-1. Prompt the user to create a "pre-pkgbasify" boot environment using [bectl(8)] if possible.
-2. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`).
+1. Make a copy of the [etcupdate(8)] current database (`/var/db/etcupdate/current`).
    This makes it possible for pkgbasify to merge config files after converting the system.
-3. Select a repository based on the output of [freebsd-version(1)] and create `/usr/local/etc/pkg/repos/FreeBSD-base.conf`.
-4. Select packages that correspond to the currently installed base system components.
+2. Select a repository based on the output of [freebsd-version(1)] and create `/usr/local/etc/pkg/repos/FreeBSD-base.conf`.
+3. Select packages that correspond to the currently installed base system components.
    - For example: if the lib32 component is not already installed,
      pkgbasify will skip installation of lib32 packages.
+4. Prompt the user to create a "pre-pkgbasify" boot environment using [bectl(8)] if possible.
 5. Install the selected packages with [pkg(8)],
    overwriting base system files and creating `.pkgsave` files as per standard `pkg(8)` behavior.
 6. Run a three-way-merge between the `.pkgsave` files (ours),
