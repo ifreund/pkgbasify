@@ -13,13 +13,15 @@ If you find a bug in pkgbasify please open an issue!
 
 ## Usage
 
-Download the script, give it permission to execute, and then run it as root.
+Download the script, give it permission to execute, run it as root:
 
-```
-# fetch https://github.com/ifreund/pkgbasify/raw/refs/heads/main/pkgbasify.lua
-# chmod +x ./pkgbasify.lua
-# ./pkgbasify.lua
-```
+1. `fetch https://github.com/ifreund/pkgbasify/raw/refs/heads/main/pkgbasify.lua`
+2. `chmod +x ./pkgbasify.lua`
+3. `./pkgbasify.lua`
+
+If conversion succeeds: 
+
+4. restart the system.
 
 ## Behavior
 
