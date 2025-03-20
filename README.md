@@ -8,7 +8,9 @@ Both the pkgbasify tool and pkgbase itself are experimental.
 Running pkgbasify may result in irreversible data loss and/or a system that fails to boot.
 It is highly recommended to make backups before running this tool.
 
-That said, I am not aware of any bugs in pkgbasify and have used it to successfully upgrade test systems.
+That said, I am not aware of any bugs in pkgbasify and have done my best to make it as robust as possible.
+I currently believe pkgbasify to be as reliable as manual conversion if not better.
+
 If you find a bug in pkgbasify please open an issue!
 
 ## Usage
@@ -35,7 +37,7 @@ pkgbasify performs the following steps:
      pkgbasify will skip installation of lib32 packages.
 4. Prompt the user to create a "pre-pkgbasify" boot environment using [bectl(8)] if possible.
 5. Install the selected packages with [pkg(8)],
-   overwriting base system files and creating `.pkgsave` files as per standard `pkg(8)` behavior.
+   overwriting base system files and creating `.pkgsave` files as per standard [pkg(8)] behavior.
 6. Run a three-way-merge between the `.pkgsave` files (ours),
    the new files installed by pkg (theirs),
    and the old files in the copy of the etcupdate database.
