@@ -2,6 +2,8 @@
 
 Automatically convert a FreeBSD system to use [pkgbase].
 
+This project is sponsored by the [FreeBSD Foundation](https://freebsdfoundation.org/).
+
 ## Disclaimer
 
 Both the pkgbasify tool and pkgbase itself are experimental.
