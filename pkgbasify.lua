@@ -364,7 +364,7 @@ function capture(command)
 	local output = p:read("*a")
 	assert(p:close())
 	-- Strip exactly one trailing newline from the output, if there is one
-	return output:match("(.-)\n$")
+	return output:match("(.-)\n$") or output
 end
 
 function append_list(list, other)
