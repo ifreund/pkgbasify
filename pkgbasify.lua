@@ -346,8 +346,11 @@ function merge_pkgsaves(workdir)
 		if os.execute("test -e " .. old) then
 			local merged = workdir .. "/merged/" .. theirs
 			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
+			-- Using cat and a redirection rather than, for example, mv preserves
+			-- file attributes of theirs (mode, ownership, etc). This is critical
+			-- when merging executable scripts in /etc/rc.d/ for example.
 			if os.execute("diff3 -m " .. ours .. " " .. old .. " " .. theirs .. " > " .. merged) and
-					os.execute("mv " .. merged .. " " .. theirs) then
+					os.execute("cat " .. merged .. " > " .. theirs) then
 				print("Merged " .. theirs)
 			else
 				print("Failed to merge " .. theirs .. ", manual intervention may be necessary")
