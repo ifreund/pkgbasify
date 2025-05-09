@@ -12,8 +12,35 @@
 local repos_conf_dir <const> = "/usr/local/etc/pkg/repos/"
 local repos_conf_file <const> = repos_conf_dir .. "FreeBSD-base.conf"
 
+local usage = [[
+Usage: pkgbasify.lua [options]
+
+    -h, --help  Print this usage message and exit
+    --force     Attempt conversion even if /usr/bin/uname
+                is owned by a package.
+
+]]
+
+local function parse_options()
+	local options = {}
+	for _, a in ipairs(arg) do
+		if a == "-h" or a == "--help" then
+			io.stdout:write(usage)
+			os.exit(0)
+		elseif a == "--force" then
+			options.force = true
+		else
+			io.stderr:write("Error: unknown option " .. a .. "\n")
+			io.stderr:write(usage)
+			os.exit(1)
+		end
+	end
+	return options
+end
+
 function main()
-	if already_pkgbase() then
+	local options = parse_options()
+	if not options.force and already_pkgbase() then
 		fatal("The system is already using pkgbase.")
 	end
 	if not confirm_risk() then
