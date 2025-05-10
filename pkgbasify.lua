@@ -79,8 +79,9 @@ function setup_conversion(workdir)
 
 	-- Use a temporary pkg db until we are sure we will carry through with the
 	-- conversion to avoid polluting the standard one.
+	-- Let pkg handle actually creating the pkgdb directory so that it sets the
+	-- permissions it expects and does not error out due to a "too lax" umask.
 	local tmp_db = workdir .. "/pkgdb/"
-	assert(os.execute("mkdir -p " .. tmp_db))
 
 	-- Use a temporary repo configuration file for the setup phase so that there
 	-- is nothing to clean up on failure.
