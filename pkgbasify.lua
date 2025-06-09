@@ -220,7 +220,7 @@ function base_repo_url()
 		fatal("Unsupported FreeBSD version: " .. raw)
 	end
 
-	if branch == "RELEASE" then
+	if branch == "RELEASE" or branch:match("^BETA") or branch:match("^RC") then
 		return "pkg+https://pkg.FreeBSD.org/${ABI}/base_release_" .. minor
 	elseif branch == "CURRENT" or branch == "STABLE" then
 		return "pkg+https://pkg.FreeBSD.org/${ABI}/base_latest"
