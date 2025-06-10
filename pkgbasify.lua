@@ -180,6 +180,10 @@ function confirm_risk()
 	print("Running this tool will irreversibly modify your system to use pkgbase.")
 	print("This tool and pkgbase are experimental and may result in a broken system.")
 	print("It is highly recommend to backup your system before proceeding.")
+	print("Running this tool may result in downloading over 1GB of packages.")
+	print("The size after install will be greater than that.")
+	print("pkg install will attempt to install regardless of available space,")
+	print("so it is important that the available space is understood as well.")
 	return prompt_yn("Do you accept this risk and wish to continue?")
 end
 
