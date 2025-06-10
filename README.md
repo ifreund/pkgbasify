@@ -10,6 +10,11 @@ Both the pkgbasify tool and pkgbase itself are experimental.
 Running pkgbasify may result in irreversible data loss and/or a system that fails to boot.
 It is highly recommended to make backups before running this tool.
 
+The pkgbasify tool can download over 1GB of packages which when installed will take even more than that.
+Since [pkg install does not check for available space](https://github.com/freebsd/pkg/issues/75), and exhausting the available disk space is possible,it is also important that one understands their available disk space.
+
+The downloaded packages may also be in the /var/cache/pkg, depending on your configuration.
+
 That said, I am not aware of any bugs in pkgbasify and have done my best to make it as robust as possible.
 I currently believe pkgbasify to be as reliable as manual conversion if not better.
 
@@ -23,7 +28,7 @@ Download the script, give it permission to execute, run it as root:
 2. `chmod +x ./pkgbasify.lua`
 3. `./pkgbasify.lua`
 
-If conversion succeeds: 
+If conversion succeeds:
 
 4. restart the system.
 
